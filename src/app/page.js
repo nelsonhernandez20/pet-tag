@@ -11,7 +11,7 @@ export default function Home() {
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div>
               <h1 className="text-5xl md:text-6xl font-bold mb-6 leading-tight">
-                🐾 La Seguridad de tu Mascota, a un Escaneo de Distancia
+                🐾 La Seguridad de tu Mascota, a un Escaneo de Distancia!
               </h1>
               <p className="text-xl md:text-2xl mb-8 text-blue-100 leading-relaxed">
                 Sistema de identificación inteligente con código QR que conecta a tu mascota contigo, 
