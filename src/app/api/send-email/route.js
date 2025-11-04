@@ -11,13 +11,11 @@ export async function POST(request) {
       to, 
       subject, 
       petName, 
-      finderContact, 
-      message, 
       location 
     } = body
 
     // Validar que tenemos los datos necesarios
-    if (!to || !petName || !finderContact) {
+    if (!to || !petName) {
       return NextResponse.json(
         { error: 'Faltan datos requeridos' },
         { status: 400 }
@@ -65,21 +63,19 @@ export async function POST(request) {
               <p>¡Buenas noticias! Tu mascota <strong>${petName}</strong> ha sido encontrada.</p>
               
               <div class="location">
-                <h3 style="margin-top: 0; color: #059669;">📍 Ubicación</h3>
+                <h3 style="margin-top: 0; color: #059669;">📍 Ubicación de tu mascota</h3>
                 ${location?.address ? `<p><strong>Dirección:</strong> ${location.address}</p>` : ''}
                 ${location?.latitude && location?.longitude 
                   ? `<p><strong>Coordenadas:</strong> ${location.latitude}, ${location.longitude}</p>
-                     <p><a href="https://www.google.com/maps?q=${location.latitude},${location.longitude}" target="_blank" style="color: #4F46E5;">Ver en Google Maps</a></p>` 
+                     <p><a href="https://www.google.com/maps?q=${location.latitude},${location.longitude}" target="_blank" style="color: #4F46E5; text-decoration: none; font-weight: bold;">📍 Ver en Google Maps</a></p>` 
                   : '<p>Ubicación no disponible</p>'}
               </div>
 
-              <div class="info-box">
-                <h3 style="margin-top: 0;">Información de Contacto</h3>
-                <p><strong>Contacto del que encontró a tu mascota:</strong><br>${finderContact}</p>
-                ${message ? `<p><strong>Mensaje:</strong><br>${message}</p>` : ''}
-              </div>
-
-              <p>Por favor contacta a la persona que encontró a tu mascota lo antes posible.</p>
+              <p>Alguien escaneó el código QR de tu mascota y compartió su ubicación contigo.</p>
+              
+              <p style="margin-top: 20px; padding: 15px; background-color: #FEF3C7; border-left: 4px solid #F59E0B; border-radius: 4px;">
+                <strong>💡 Sugerencia:</strong> Si no puedes ir inmediatamente, considera contactar a alguien cercano a esa ubicación para que te ayude.
+              </p>
               
               <div class="footer">
                 <p>Este email fue generado automáticamente cuando alguien escaneó el código QR de tu mascota.</p>

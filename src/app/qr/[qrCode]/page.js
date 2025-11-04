@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import Image from 'next/image'
 
 export default function QRScanPage() {
   const params = useParams()
@@ -11,14 +12,11 @@ export default function QRScanPage() {
   const [loading, setLoading] = useState(true)
   const [qrData, setQrData] = useState(null)
   const [ownerData, setOwnerData] = useState(null)
-  const [contactMethod, setContactMethod] = useState('email')
-  const [contactInfo, setContactInfo] = useState('')
-  const [message, setMessage] = useState('')
   const [submitted, setSubmitted] = useState(false)
-  const [includeLocation, setIncludeLocation] = useState(true)
   const [location, setLocation] = useState(null)
   const [locationError, setLocationError] = useState(null)
   const [gettingLocation, setGettingLocation] = useState(false)
+  const [sendingLocation, setSendingLocation] = useState(false)
 
   useEffect(() => {
     if (qrCode) {
@@ -26,16 +24,12 @@ export default function QRScanPage() {
     }
   }, [qrCode])
 
-  // Obtener ubicación solo si el usuario quiere incluirla
+  // Obtener ubicación automáticamente cuando se carga la página
   useEffect(() => {
-    if (ownerData && includeLocation && !location && !gettingLocation && !loading) {
+    if (ownerData && !location && !gettingLocation && !loading) {
       getLocation()
-    } else if (!includeLocation && location) {
-      // Si desmarca la opción, limpiar la ubicación
-      setLocation(null)
-      setLocationError(null)
     }
-  }, [ownerData, loading, includeLocation])
+  }, [ownerData, loading])
 
   const getLocation = async () => {
     setGettingLocation(true)
@@ -150,6 +144,7 @@ export default function QRScanPage() {
           // Construir datos del dueño según configuración de privacidad
           const owner = {
             petName: privacy?.show_name !== false ? pet.name : 'Mascota',
+            petPhoto: pet.photo_url || null,
             email: privacy?.show_email !== false ? profileData?.email : null,
             phone: privacy?.show_phone !== false ? profileData?.phone : null,
             address: privacy?.show_address !== false ? profileData?.address : null,
@@ -180,24 +175,15 @@ export default function QRScanPage() {
     }
   }
 
-  const handleContactSubmit = async (e) => {
-    e.preventDefault()
-    setSubmitted(true)
-
+  // Función para enviar ubicación por correo
+  const handleSendLocationByEmail = async () => {
+    if (!ownerData?.email) return
+    
+    setSendingLocation(true)
+    
     try {
-      // Buscar pet_id desde pets usando qr_code_id
-      let petId = null
-      if (qrData.is_associated) {
-        const { data: pet } = await supabase
-          .from('pets')
-          .select('id')
-          .eq('qr_code_id', qrData.id)
-          .single()
-        petId = pet?.id || null
-      }
-
-      // Si se está obteniendo la ubicación y el usuario quiere incluirla, esperar
-      if (includeLocation && gettingLocation) {
+      // Esperar a que se obtenga la ubicación si está en proceso
+      if (gettingLocation) {
         await new Promise((resolve) => {
           const checkLocation = setInterval(() => {
             if (!gettingLocation) {
@@ -208,105 +194,166 @@ export default function QRScanPage() {
           setTimeout(() => {
             clearInterval(checkLocation)
             resolve()
-          }, 10000) // Timeout de 10 segundos
+          }, 10000)
         })
       }
 
-      // Determinar la ubicación a usar (solo si el usuario quiere incluirla)
-      const locationToUse = includeLocation ? location : null
+      if (!location) {
+        alert('No se pudo obtener tu ubicación. Por favor, permite el acceso a la ubicación.')
+        setSendingLocation(false)
+        return
+      }
 
-      // Registrar el escaneo con ubicación (si se incluyó)
+      // Buscar pet_id
+      let petId = null
+      if (qrData.is_associated) {
+        const { data: pet } = await supabase
+          .from('pets')
+          .select('id')
+          .eq('qr_code_id', qrData.id)
+          .single()
+        petId = pet?.id || null
+      }
+
+      // Enviar email con ubicación
+      const emailResponse = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          to: ownerData.email,
+          subject: `Tu mascota ${ownerData.petName} ha sido encontrada`,
+          petName: ownerData.petName,
+          location: {
+            latitude: location.latitude,
+            longitude: location.longitude,
+            address: location.address || null,
+          },
+        }),
+      })
+
+      const emailResult = await emailResponse.json()
+      
+      // Registrar el escaneo
       const scanLogData = {
         qr_code_id: qrData.id,
         pet_id: petId,
-        contact_method: contactMethod,
-        contact_info: contactInfo,
-        message_sent: false,
+        contact_method: 'email',
+        message_sent: emailResponse.ok && emailResult.success,
+        email_sent: emailResponse.ok && emailResult.success,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        location_address: location.address || null,
       }
-
-      if (locationToUse) {
-        scanLogData.latitude = locationToUse.latitude
-        scanLogData.longitude = locationToUse.longitude
-        scanLogData.location_address = locationToUse.address || null
-      }
-
-      let emailSent = false
-
-      // Solo enviar email si el método es email (no si es WhatsApp)
-      if (contactMethod === 'email' && ownerData?.email) {
-        try {
-          const emailResponse = await fetch('/api/send-email', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              to: ownerData.email,
-              subject: `Tu mascota ${ownerData.petName} ha sido encontrada`,
-              petName: ownerData.petName,
-              finderContact: contactInfo,
-              message: message || null,
-              location: locationToUse ? {
-                latitude: locationToUse.latitude,
-                longitude: locationToUse.longitude,
-                address: locationToUse.address || null,
-              } : null,
-            }),
-          })
-
-          const emailResult = await emailResponse.json()
-          
-          if (emailResponse.ok && emailResult.success) {
-            emailSent = true
-            scanLogData.message_sent = true
-            scanLogData.email_sent = true
-          } else {
-            console.error('Error al enviar email:', emailResult.error)
-            alert('Se registró tu contacto, pero hubo un error al enviar el email. Por favor, intenta contactar directamente.')
-          }
-        } catch (emailError) {
-          console.error('Error al llamar API de email:', emailError)
-          alert('Se registró tu contacto, pero hubo un error al enviar el email. Por favor, intenta contactar directamente.')
-        }
-      } else if (contactMethod === 'whatsapp' && ownerData?.phone) {
-        // Generar enlace de WhatsApp (NO enviar email, ahorrar emails de Resend)
-        let whatsappMessage = `Hola, encontré a tu mascota ${ownerData.petName}. `
-        
-        if (locationToUse) {
-          if (locationToUse.address) {
-            whatsappMessage += `📍 Ubicación: ${locationToUse.address} `
-          }
-          whatsappMessage += `(Coordenadas: ${locationToUse.latitude}, ${locationToUse.longitude}) `
-        }
-        
-        whatsappMessage += `Mi información de contacto: ${contactInfo}. `
-        
-        if (message) {
-          whatsappMessage += `Mensaje: ${message}`
-        }
-
-        const whatsappUrl = `https://wa.me/${ownerData.phone.replace(/\D/g, '')}?text=${encodeURIComponent(whatsappMessage)}`
-        
-        window.open(whatsappUrl, '_blank')
-        scanLogData.message_sent = true
-      }
-
-      // Registrar el escaneo en la base de datos
+      
       await supabase.from('scan_logs').insert(scanLogData)
 
-      if (contactMethod === 'email') {
-        if (emailSent) {
-          const locationMsg = locationToUse ? ' con tu información de contacto y la ubicación' : ' con tu información de contacto'
-          alert(`¡Gracias! Se ha enviado un correo al dueño de la mascota${locationMsg}.`)
-        }
+      if (emailResponse.ok && emailResult.success) {
+        setSubmitted(true)
+        alert('¡Ubicación enviada! El dueño recibió un correo con la ubicación de su mascota.')
       } else {
-        alert('¡Gracias! Se ha abierto WhatsApp para que puedas contactar al dueño.')
+        alert('Error al enviar el correo. Por favor, intenta nuevamente.')
+        setSendingLocation(false)
       }
     } catch (error) {
-      console.error('Error submitting contact:', error)
-      alert('Hubo un error al procesar tu solicitud. Por favor, intenta nuevamente.')
-      setSubmitted(false)
+      console.error('Error enviando ubicación por email:', error)
+      alert('Error al enviar el correo. Por favor, intenta nuevamente.')
+      setSendingLocation(false)
     }
+  }
+
+  // Función para enviar ubicación por WhatsApp
+  const handleSendLocationByWhatsApp = async () => {
+    if (!ownerData?.phone) return
+    
+    setSendingLocation(true)
+    
+    try {
+      // Esperar a que se obtenga la ubicación si está en proceso
+      if (gettingLocation) {
+        await new Promise((resolve) => {
+          const checkLocation = setInterval(() => {
+            if (!gettingLocation) {
+              clearInterval(checkLocation)
+              resolve()
+            }
+          }, 500)
+          setTimeout(() => {
+            clearInterval(checkLocation)
+            resolve()
+          }, 10000)
+        })
+      }
+
+      if (!location) {
+        alert('No se pudo obtener tu ubicación. Por favor, permite el acceso a la ubicación.')
+        setSendingLocation(false)
+        return
+      }
+
+      // Buscar pet_id
+      let petId = null
+      if (qrData.is_associated) {
+        const { data: pet } = await supabase
+          .from('pets')
+          .select('id')
+          .eq('qr_code_id', qrData.id)
+          .single()
+        petId = pet?.id || null
+      }
+
+      // Generar mensaje de WhatsApp con ubicación
+      let whatsappMessage = `Hola, encontré a tu mascota ${ownerData.petName}. `
+      
+      if (location.address) {
+        whatsappMessage += `📍 Ubicación: ${location.address} `
+      }
+      whatsappMessage += `(Coordenadas: ${location.latitude}, ${location.longitude})`
+
+      const whatsappUrl = `https://wa.me/${ownerData.phone.replace(/\D/g, '')}?text=${encodeURIComponent(whatsappMessage)}`
+      
+      // Registrar el escaneo
+      const scanLogData = {
+        qr_code_id: qrData.id,
+        pet_id: petId,
+        contact_method: 'whatsapp',
+        message_sent: true,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        location_address: location.address || null,
+      }
+      
+      await supabase.from('scan_logs').insert(scanLogData)
+
+      window.open(whatsappUrl, '_blank')
+      setSubmitted(true)
+      setSendingLocation(false)
+    } catch (error) {
+      console.error('Error enviando ubicación por WhatsApp:', error)
+      alert('Error al abrir WhatsApp. Por favor, intenta nuevamente.')
+      setSendingLocation(false)
+    }
+  }
+
+  // Función para escribir directamente por WhatsApp
+  const handleWriteWhatsApp = () => {
+    if (!ownerData?.phone) return
+    
+    const whatsappMessage = `Hola, encontré a tu mascota ${ownerData.petName}.`
+    const whatsappUrl = `https://wa.me/${ownerData.phone.replace(/\D/g, '')}?text=${encodeURIComponent(whatsappMessage)}`
+    
+    // Registrar el escaneo básico
+    const scanLogData = {
+      qr_code_id: qrData.id,
+      pet_id: null,
+      contact_method: 'whatsapp',
+      message_sent: false,
+    }
+    
+    supabase.from('scan_logs').insert(scanLogData)
+    
+    window.open(whatsappUrl, '_blank')
   }
 
   if (loading) {
@@ -411,134 +458,149 @@ export default function QRScanPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#F3F3F3] px-4 py-8">
       <div className="max-w-md w-full bg-white rounded-xl shadow-xl p-8 border border-slate-200">
-        <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold mb-2">
-            Mascota Encontrada
-          </h1>
-          <p className="text-zinc-600">
-            {ownerData?.petName}
-          </p>
-        </div>
-
-        {ownerData?.customMessage && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <p className="text-sm text-[#4646FA]">
-              {ownerData.customMessage}
-            </p>
-          </div>
-        )}
-
         {!submitted ? (
           <>
-            <p className="text-zinc-600 mb-6 text-center">
-              Si encontraste esta mascota, por favor completa el formulario para contactar al dueño.
-            </p>
+            {/* Foto de la mascota */}
+            {ownerData?.petPhoto && (
+              <div className="flex justify-center mb-6">
+                <div className="relative w-32 h-32 rounded-full overflow-hidden border-4 border-[#4646FA]">
+                  <Image
+                    src={ownerData.petPhoto}
+                    alt={ownerData.petName}
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+              </div>
+            )}
 
-            {includeLocation && gettingLocation && (
+            {/* Nombre de la mascota */}
+            <div className="text-center mb-6">
+              <h1 className="text-3xl font-bold mb-2 text-[#4646FA]">
+                {ownerData?.petName}
+              </h1>
+              <p className="text-zinc-600 text-sm">
+                Mascota encontrada
+              </p>
+            </div>
+
+            {/* Mensaje personalizado del dueño */}
+            {ownerData?.customMessage && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <p className="text-sm text-[#4646FA] text-center">
+                  {ownerData.customMessage}
+                </p>
+              </div>
+            )}
+
+            {/* Estado de ubicación */}
+            {gettingLocation && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                <p className="text-sm text-[#4646FA]">
+                <p className="text-sm text-[#4646FA] text-center">
                   📍 Obteniendo tu ubicación...
                 </p>
               </div>
             )}
 
-            {includeLocation && location && (
+            {location && (
               <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-                <p className="text-sm text-green-800">
+                <p className="text-sm text-green-800 text-center">
                   ✅ Ubicación obtenida
-                  {location.address && `: ${location.address}`}
+                  {location.address && (
+                    <span className="block mt-1 text-xs">{location.address}</span>
+                  )}
                 </p>
               </div>
             )}
 
-            {includeLocation && locationError && (
+            {locationError && (
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
-                <p className="text-sm text-yellow-800">
+                <p className="text-sm text-yellow-800 text-center">
                   ⚠️ {locationError}
                 </p>
               </div>
             )}
 
-            <form onSubmit={handleContactSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Método de Contacto
-                </label>
-                <select
-                  value={contactMethod}
-                  onChange={(e) => setContactMethod(e.target.value)}
-                  className="w-full px-4 py-2 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-[#4646FA] focus:border-[#4646FA] bg-white text-gray-800"
+            {/* Información del dueño */}
+            <div className="bg-[#F3F3F3] rounded-lg p-4 mb-6">
+              <h3 className="text-sm font-semibold text-zinc-700 mb-3">Información del dueño:</h3>
+              <div className="space-y-2 text-sm">
+                {ownerData?.email && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-zinc-500">📧</span>
+                    <span className="text-zinc-700">{ownerData.email}</span>
+                  </div>
+                )}
+                {ownerData?.phone && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-zinc-500">📱</span>
+                    <span className="text-zinc-700">{ownerData.phone}</span>
+                  </div>
+                )}
+                {ownerData?.address && (
+                  <div className="flex items-start gap-2">
+                    <span className="text-zinc-500">📍</span>
+                    <span className="text-zinc-700">{ownerData.address}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Botones de acción */}
+            <div className="space-y-3">
+              {ownerData?.email && (
+                <button
+                  onClick={handleSendLocationByEmail}
+                  disabled={sendingLocation || gettingLocation || !location}
+                  className="w-full px-4 py-3 bg-[#4646FA] text-white rounded-lg hover:bg-[#3535E8] hover:shadow-lg hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-md font-medium flex items-center justify-center gap-2"
                 >
-                  <option value="email">Correo Electrónico</option>
-                  <option value="whatsapp">WhatsApp</option>
-                </select>
-              </div>
+                  📧 Enviar ubicación por correo
+                </button>
+              )}
 
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  {contactMethod === 'email' ? 'Tu Correo Electrónico' : 'Tu Número de WhatsApp'}
-                </label>
-                <input
-                  type={contactMethod === 'email' ? 'email' : 'tel'}
-                  value={contactInfo}
-                  onChange={(e) => setContactInfo(e.target.value)}
-                  className="w-full px-4 py-2 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-[#4646FA] focus:border-[#4646FA] bg-white text-gray-800"
-                  required
-                />
-              </div>
+              {ownerData?.phone && (
+                <>
+                  <button
+                    onClick={handleSendLocationByWhatsApp}
+                    disabled={sendingLocation || gettingLocation || !location}
+                    className="w-full px-4 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 hover:shadow-lg hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-md font-medium flex items-center justify-center gap-2"
+                  >
+                    📱 Enviar ubicación por WhatsApp
+                  </button>
 
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Mensaje (opcional)
-                </label>
-                <textarea
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  rows="4"
-                  className="w-full px-4 py-2 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-[#4646FA] focus:border-[#4646FA] bg-white text-gray-800"
-                />
-              </div>
+                  <button
+                    onClick={handleWriteWhatsApp}
+                    disabled={sendingLocation}
+                    className="w-full px-4 py-3 border-2 border-green-500 text-green-600 rounded-lg hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 font-medium flex items-center justify-center gap-2"
+                  >
+                    💬 Escribir por WhatsApp
+                  </button>
+                </>
+              )}
 
-              <div className="flex items-start space-x-3 p-4 bg-[#F3F3F3] rounded-lg">
-                <input
-                  type="checkbox"
-                  id="includeLocation"
-                  checked={includeLocation}
-                  onChange={(e) => setIncludeLocation(e.target.checked)}
-                  className="mt-1 w-4 h-4 text-[#4646FA] border-zinc-300 rounded focus:ring-[#4646FA]"
-                />
-                <label htmlFor="includeLocation" className="text-sm text-zinc-700">
-                  <span className="font-medium">Incluir mi ubicación</span>
-                  <p className="text-xs text-zinc-500 mt-1">
-                    {contactMethod === 'email' 
-                      ? 'El dueño recibirá un email con tu ubicación (usa 1 email de Resend)'
-                      : 'La ubicación se incluirá en el mensaje de WhatsApp (gratis)'}
+              {!ownerData?.email && !ownerData?.phone && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
+                  <p className="text-sm text-yellow-800">
+                    ⚠️ No hay información de contacto disponible del dueño.
                   </p>
-                </label>
-              </div>
-
-              <button
-                type="submit"
-                className="w-full px-4 py-3 bg-[#4646FA] text-white rounded-lg hover:bg-[#4646FA] hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 shadow-md font-medium"
-              >
-                {contactMethod === 'email' ? 'Enviar Correo' : 'Abrir WhatsApp'}
-              </button>
-            </form>
+                </div>
+              )}
+            </div>
           </>
         ) : (
           <div className="text-center">
-            <div className="text-green-600 mb-4 text-2xl">
+            <div className="text-green-600 mb-4 text-3xl">
               ✓
             </div>
             <h2 className="text-xl font-bold mb-2">
               ¡Gracias!
             </h2>
             <p className="text-zinc-600 mb-6">
-              Tu información ha sido enviada al dueño de la mascota.
+              El dueño ha sido notificado sobre su mascota.
             </p>
             <Link
               href="/"
-              className="text-[#4646FA] hover:text-[#4646FA] font-medium transition-colors duration-200"
+              className="inline-block text-[#4646FA] hover:text-[#3535E8] font-medium transition-colors duration-200"
             >
               Volver al inicio
             </Link>
