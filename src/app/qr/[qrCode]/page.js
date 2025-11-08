@@ -365,9 +365,10 @@ const getLocation = useCallback(async () => {
       let whatsappMessage = customIntro
       
       if (currentLocation.address) {
-        whatsappMessage += `Ubicación: ${currentLocation.address} `
+        whatsappMessage += `Ubicación: ${currentLocation.address}\n`
       }
-      whatsappMessage += `(Coordenadas: ${currentLocation.latitude}, ${currentLocation.longitude})`
+      whatsappMessage += `Coordenadas: ${currentLocation.latitude}, ${currentLocation.longitude}\n`
+      whatsappMessage += `Mapa: https://maps.google.com/?q=${currentLocation.latitude},${currentLocation.longitude}`
 
       const whatsappUrl = `https://wa.me/${ownerData.phone.replace(/\D/g, '')}?text=${encodeURIComponent(whatsappMessage)}`
       
