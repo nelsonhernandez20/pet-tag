@@ -97,6 +97,19 @@ export async function POST(request) {
 
     if (error) {
       console.error('Error al enviar email con Resend:', error)
+      
+      // Si es un error de validación (403), probablemente es porque no se puede enviar a otros destinatarios
+      if (error.statusCode === 403 && error.message?.includes('testing emails')) {
+        return NextResponse.json(
+          { 
+            error: 'Límite del plan gratuito de Resend',
+            details: 'El plan gratuito de Resend solo permite enviar emails a tu propia dirección. Para enviar a otros destinatarios, necesitas verificar un dominio en resend.com/domains',
+            resendError: error.message
+          },
+          { status: 403 }
+        )
+      }
+      
       return NextResponse.json(
         { error: 'Error al enviar email', details: error },
         { status: 500 }

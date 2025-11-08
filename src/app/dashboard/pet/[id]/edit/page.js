@@ -7,6 +7,23 @@ import Link from 'next/link'
 import { FaCamera, FaFolder, FaTimes, FaCheck } from 'react-icons/fa'
 
 export default function EditPetPage() {
+  const removeFileFromStorage = async (bucketName, fileUrl) => {
+    if (!fileUrl) return
+    try {
+      const urlParts = fileUrl.split('/')
+      const bucketIndex = urlParts.indexOf(bucketName)
+      if (bucketIndex === -1 || bucketIndex >= urlParts.length - 1) return
+      const filePath = urlParts.slice(bucketIndex + 1).join('/')
+      const { error: deleteError } = await supabase.storage
+        .from(bucketName)
+        .remove([filePath])
+      if (deleteError) {
+        console.warn(`Error al eliminar archivo de ${bucketName}:`, deleteError)
+      }
+    } catch (err) {
+      console.warn(`Error al procesar eliminación en ${bucketName}:`, err)
+    }
+  }
   const params = useParams()
   const router = useRouter()
   const petId = params?.id
@@ -21,6 +38,7 @@ export default function EditPetPage() {
   const canvasRef = useRef(null)
   const streamRef = useRef(null)
   const [vaccineFile, setVaccineFile] = useState(null)
+  const [vaccineUrl, setVaccineUrl] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -51,15 +69,22 @@ export default function EditPetPage() {
         video: { facingMode: 'environment' } // Usar cámara trasera en móviles
       })
       streamRef.current = stream
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        setShowCamera(true)
-      }
+      setShowCamera(true)
     } catch (err) {
       alert('Error al acceder a la cámara: ' + err.message)
       console.error('Error accessing camera:', err)
     }
   }
+
+  useEffect(() => {
+    if (showCamera && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current
+      const playPromise = videoRef.current.play?.()
+      if (playPromise && typeof playPromise.then === 'function') {
+        playPromise.catch(() => {})
+      }
+    }
+  }, [showCamera])
 
   const capturePhoto = () => {
     if (videoRef.current && canvasRef.current) {
@@ -87,6 +112,9 @@ export default function EditPetPage() {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop())
       streamRef.current = null
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null
     }
     setShowCamera(false)
   }
@@ -116,6 +144,7 @@ export default function EditPetPage() {
       setBreed(data.breed || '')
       setAge(data.age || '')
       setPhotoPreview(data.photo_url || null)
+      setVaccineUrl(data.vaccine_pdf_url || null)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -130,7 +159,7 @@ export default function EditPetPage() {
     setSuccess(false)
 
     try {
-      let vaccinePdfUrl = null
+      let vaccinePdfUrl = vaccineUrl || null
       let photoUrl = null
 
       // Obtener URLs actuales si existen
@@ -145,6 +174,9 @@ export default function EditPetPage() {
 
       // Subir foto si hay archivo nuevo
       if (photoFile) {
+        if (photoUrl) {
+          await removeFileFromStorage('pet-photos', photoUrl)
+        }
         const fileExt = photoFile.name.split('.').pop()
         const fileName = `${user.id}/photos/${Date.now()}.${fileExt}`
         const { error: uploadError } = await supabase.storage
@@ -162,6 +194,9 @@ export default function EditPetPage() {
 
       // Subir PDF si hay archivo nuevo
       if (vaccineFile) {
+        if (vaccinePdfUrl) {
+          await removeFileFromStorage('vaccine-pdfs', vaccinePdfUrl)
+        }
         const fileExt = vaccineFile.name.split('.').pop()
         const fileName = `${user.id}/${Date.now()}.${fileExt}`
         const { error: uploadError } = await supabase.storage
@@ -175,6 +210,7 @@ export default function EditPetPage() {
           .getPublicUrl(fileName)
 
         vaccinePdfUrl = publicUrl
+        setVaccineUrl(publicUrl)
       }
 
       const { error: updateError } = await supabase
@@ -352,7 +388,19 @@ export default function EditPetPage() {
               <label className="block text-sm font-medium mb-2 text-gray-800">
                 PDF de Control de Vacunas
               </label>
-              <input
+            {vaccineUrl && (
+              <div className="mb-2 text-sm">
+                <a
+                  href={vaccineUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#4646FA] hover:text-[#3535E8] font-medium transition-colors duration-200"
+                >
+                  Ver PDF actual
+                </a>
+              </div>
+            )}
+            <input
                 type="file"
                 accept=".pdf"
                 onChange={(e) => setVaccineFile(e.target.files[0])}

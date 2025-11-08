@@ -5,19 +5,29 @@ import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 
+const defaultPrivacySettings = {
+  show_address: true,
+  show_phone: true,
+  show_email: true,
+  show_name: true,
+  custom_message: '',
+}
+
+const mapDbSettings = (dbSettings) => ({
+  show_address: dbSettings?.show_address ?? true,
+  show_phone: dbSettings?.show_phone ?? true,
+  show_email: dbSettings?.show_email ?? true,
+  show_name: dbSettings?.show_name ?? true,
+  custom_message: dbSettings?.custom_message ?? '',
+})
+
 export default function PrivacySettingsPage() {
   const params = useParams()
   const router = useRouter()
   const petId = params?.id
   const [user, setUser] = useState(null)
   const [pet, setPet] = useState(null)
-  const [privacySettings, setPrivacySettings] = useState({
-    show_address: true,
-    show_phone: true,
-    show_email: true,
-    show_name: true,
-    custom_message: '',
-  })
+  const [privacySettings, setPrivacySettings] = useState(defaultPrivacySettings)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -55,9 +65,12 @@ export default function PrivacySettingsPage() {
       if (petError) throw petError
 
       setPet(petData)
+      const privacyRecord = Array.isArray(petData.privacy_settings)
+        ? petData.privacy_settings[0]
+        : petData.privacy_settings
 
-      if (petData.privacy_settings && petData.privacy_settings.length > 0) {
-        setPrivacySettings(petData.privacy_settings[0])
+      if (privacyRecord) {
+        setPrivacySettings(mapDbSettings(privacyRecord))
       } else {
         // Crear configuración por defecto si no existe
         // Usar upsert para evitar duplicados si se intenta crear dos veces
@@ -65,7 +78,7 @@ export default function PrivacySettingsPage() {
           .from('privacy_settings')
           .upsert({
             pet_id: petId,
-            ...privacySettings,
+            ...defaultPrivacySettings,
           }, {
             onConflict: 'pet_id'
           })
@@ -79,14 +92,14 @@ export default function PrivacySettingsPage() {
             .select('*')
             .eq('pet_id', petId)
             .single()
-          
+
           if (existingSettings) {
-            setPrivacySettings(existingSettings)
+            setPrivacySettings(mapDbSettings(existingSettings))
           } else {
             throw settingsError
           }
         } else {
-          setPrivacySettings(newSettings)
+          setPrivacySettings(mapDbSettings(newSettings))
         }
       }
     } catch (err) {
