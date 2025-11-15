@@ -33,6 +33,8 @@ export default function QRScanPage() {
   const [locationError, setLocationError] = useState(null)
   const [gettingLocation, setGettingLocation] = useState(false)
   const [sendingLocation, setSendingLocation] = useState(false)
+  const [whatsappUrl, setWhatsappUrl] = useState(null)
+  const [whatsappUrlWithLocation, setWhatsappUrlWithLocation] = useState(null)
   const [showVaccinePdf, setShowVaccinePdf] = useState(false)
 
   useEffect(() => {
@@ -40,6 +42,25 @@ export default function QRScanPage() {
       fetchQRData()
     }
   }, [qrCode])
+
+  // Actualizar URL de WhatsApp con ubicación cuando se obtiene
+  useEffect(() => {
+    if (location && ownerData?.phone) {
+      const customIntro = ownerData.customMessage
+        ? `${ownerData.customMessage.trim()} `
+        : `Hola, encontré a tu mascota ${ownerData.petName}. `
+      let whatsappMessage = customIntro
+      
+      if (location.address) {
+        whatsappMessage += `Ubicación: ${location.address}\n`
+      }
+      whatsappMessage += `Coordenadas: ${location.latitude}, ${location.longitude}\n`
+      whatsappMessage += `Mapa: https://maps.google.com/?q=${location.latitude},${location.longitude}`
+
+      const whatsappUrlWithLoc = `https://wa.me/${ownerData.phone.replace(/\D/g, '')}?text=${encodeURIComponent(whatsappMessage)}`
+      setWhatsappUrlWithLocation(whatsappUrlWithLoc)
+    }
+  }, [location, ownerData])
 
 const locationRef = useRef(location)
 const gettingLocationRef = useRef(gettingLocation)
@@ -230,6 +251,15 @@ const getLocation = useCallback(async () => {
 
           console.log('Owner data:', owner)
           setOwnerData(owner)
+          
+          // Generar URL de WhatsApp básica
+          if (owner.phone) {
+            const basicMessage = owner.customMessage
+              ? owner.customMessage.trim()
+              : `Hola, encontré a tu mascota ${owner.petName}.`
+            const basicUrl = `https://wa.me/${owner.phone.replace(/\D/g, '')}?text=${encodeURIComponent(basicMessage)}`
+            setWhatsappUrl(basicUrl)
+          }
         }
       }
 
@@ -332,8 +362,8 @@ const getLocation = useCallback(async () => {
     }
   }
 
-  // Función para enviar ubicación por WhatsApp
-  const handleSendLocationByWhatsApp = async () => {
+  // Función para registrar escaneo y obtener ubicación si es necesario
+  const handleGetLocationForWhatsApp = async () => {
     if (!ownerData?.phone) return
     
     setSendingLocation(true)
@@ -357,20 +387,6 @@ const getLocation = useCallback(async () => {
           .single()
         petId = pet?.id || null
       }
-
-      // Generar mensaje de WhatsApp con ubicación
-      const customIntro = ownerData.customMessage
-        ? `${ownerData.customMessage.trim()} `
-        : `Hola, encontré a tu mascota ${ownerData.petName}. `
-      let whatsappMessage = customIntro
-      
-      if (currentLocation.address) {
-        whatsappMessage += `Ubicación: ${currentLocation.address}\n`
-      }
-      whatsappMessage += `Coordenadas: ${currentLocation.latitude}, ${currentLocation.longitude}\n`
-      whatsappMessage += `Mapa: https://maps.google.com/?q=${currentLocation.latitude},${currentLocation.longitude}`
-
-      const whatsappUrl = `https://wa.me/${ownerData.phone.replace(/\D/g, '')}?text=${encodeURIComponent(whatsappMessage)}`
       
       // Registrar el escaneo
       const scanLogData = {
@@ -384,37 +400,47 @@ const getLocation = useCallback(async () => {
       }
       
       await supabase.from('scan_logs').insert(scanLogData)
+      
+      // Construir URL de WhatsApp con ubicación
+      const customIntro = ownerData.customMessage
+        ? `${ownerData.customMessage.trim()} `
+        : `Hola, encontré a tu mascota ${ownerData.petName}. `
+      let whatsappMessage = customIntro
+      
+      if (currentLocation.address) {
+        whatsappMessage += `Ubicación: ${currentLocation.address}\n`
+      }
+      whatsappMessage += `Coordenadas: ${currentLocation.latitude}, ${currentLocation.longitude}\n`
+      whatsappMessage += `Mapa: https://maps.google.com/?q=${currentLocation.latitude},${currentLocation.longitude}`
 
-      window.open(whatsappUrl, '_blank')
+      const whatsappUrlWithLoc = `https://wa.me/${ownerData.phone.replace(/\D/g, '')}?text=${encodeURIComponent(whatsappMessage)}`
+      
+      // Redirigir directamente usando location.href en lugar de window.open
+      window.location.href = whatsappUrlWithLoc
       setSubmitted(true)
       setSendingLocation(false)
     } catch (error) {
-      console.error('Error enviando ubicación por WhatsApp:', error)
-      alert('Error al abrir WhatsApp. Por favor, intenta nuevamente.')
+      console.error('Error obteniendo ubicación:', error)
       setSendingLocation(false)
     }
   }
 
-  // Función para escribir directamente por WhatsApp
-  const handleWriteWhatsApp = () => {
-    if (!ownerData?.phone) return
+  // Función para registrar escaneo básico
+  const handleRegisterBasicScan = async () => {
+    if (!ownerData?.phone || !qrData) return
     
-    const whatsappMessage = ownerData.customMessage
-      ? ownerData.customMessage.trim()
-      : `Hola, encontré a tu mascota ${ownerData.petName}.`
-    const whatsappUrl = `https://wa.me/${ownerData.phone.replace(/\D/g, '')}?text=${encodeURIComponent(whatsappMessage)}`
-    
-    // Registrar el escaneo básico
-    const scanLogData = {
-      qr_code_id: qrData.id,
-      pet_id: null,
-      contact_method: 'whatsapp',
-      message_sent: false,
+    try {
+      const scanLogData = {
+        qr_code_id: qrData.id,
+        pet_id: null,
+        contact_method: 'whatsapp',
+        message_sent: false,
+      }
+      
+      await supabase.from('scan_logs').insert(scanLogData)
+    } catch (error) {
+      console.error('Error registrando escaneo:', error)
     }
-    
-    supabase.from('scan_logs').insert(scanLogData)
-    
-    window.open(whatsappUrl, '_blank')
   }
 
   if (loading) {
@@ -740,22 +766,60 @@ const getLocation = useCallback(async () => {
               <div className="space-y-4">
                 {ownerData?.phone ? (
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <button
-                      onClick={handleSendLocationByWhatsApp}
-                      disabled={sendingLocation || gettingLocation}
-                      className="inline-flex items-center justify-center gap-3 px-5 py-3 rounded-xl bg-green-500 text-white font-semibold shadow-md hover:bg-green-600 hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <FaWhatsapp className="text-lg" />
-                      Enviar ubicación por WhatsApp
-                    </button>
-                    <button
-                      onClick={handleWriteWhatsApp}
-                      disabled={sendingLocation}
-                      className="inline-flex items-center justify-center gap-3 px-5 py-3 rounded-xl border-2 border-green-500 text-green-600 font-semibold hover:bg-green-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <FaPaperPlane className="text-sm" />
-                      Escribir por WhatsApp
-                    </button>
+                    {whatsappUrlWithLocation ? (
+                      <a
+                        href={whatsappUrlWithLocation}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={async () => {
+                          // Registrar el escaneo antes de abrir WhatsApp
+                          if (qrData?.is_associated) {
+                            const { data: pet } = await supabase
+                              .from('pets')
+                              .select('id')
+                              .eq('qr_code_id', qrData.id)
+                              .single()
+                            const petId = pet?.id || null
+                            
+                            await supabase.from('scan_logs').insert({
+                              qr_code_id: qrData.id,
+                              pet_id: petId,
+                              contact_method: 'whatsapp',
+                              message_sent: true,
+                              latitude: location.latitude,
+                              longitude: location.longitude,
+                              location_address: location.address || null,
+                            })
+                            setSubmitted(true)
+                          }
+                        }}
+                        className="inline-flex items-center justify-center gap-3 px-5 py-3 rounded-xl bg-green-500 text-white font-semibold shadow-md hover:bg-green-600 hover:-translate-y-0.5 transition-all"
+                      >
+                        <FaWhatsapp className="text-lg" />
+                        Enviar ubicación por WhatsApp
+                      </a>
+                    ) : (
+                      <button
+                        onClick={handleGetLocationForWhatsApp}
+                        disabled={sendingLocation || gettingLocation}
+                        className="inline-flex items-center justify-center gap-3 px-5 py-3 rounded-xl bg-green-500 text-white font-semibold shadow-md hover:bg-green-600 hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <FaWhatsapp className="text-lg" />
+                        {gettingLocation || sendingLocation ? 'Obteniendo ubicación...' : 'Enviar ubicación por WhatsApp'}
+                      </button>
+                    )}
+                    {whatsappUrl && (
+                      <a
+                        href={whatsappUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={handleRegisterBasicScan}
+                        className="inline-flex items-center justify-center gap-3 px-5 py-3 rounded-xl border-2 border-green-500 text-green-600 font-semibold hover:bg-green-50 transition-all"
+                      >
+                        <FaPaperPlane className="text-sm" />
+                        Escribir por WhatsApp
+                      </a>
+                    )}
                   </div>
                 ) : (
                   <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50/80 p-5 shadow-sm">

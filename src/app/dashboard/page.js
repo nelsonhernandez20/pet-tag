@@ -104,21 +104,21 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-[#F3F3F3]">
       <nav className="bg-[#4646FA] shadow-md border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <h1 className="text-2xl font-bold text-white">Mi Dashboard</h1>
-            <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 py-4 sm:py-0 sm:h-16">
+            <h1 className="text-xl sm:text-2xl font-bold text-white">Mi Dashboard</h1>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 w-full sm:w-auto">
               <Link
                 href="/dashboard/profile"
-                className="text-sm text-white hover:underline"
+                className="text-sm text-white hover:underline w-full sm:w-auto text-center sm:text-left"
               >
                 Mi Perfil
               </Link>
-              <span className="text-sm text-white">
+              <span className="text-xs sm:text-sm text-white/90 truncate max-w-[200px] sm:max-w-none">
                 {user?.email}
               </span>
               <button
                 onClick={handleLogout}
-                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 shadow-md font-medium"
+                className="w-full sm:w-auto px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 shadow-md font-medium text-sm sm:text-base"
               >
                 Cerrar Sesión
               </button>
@@ -127,12 +127,12 @@ export default function DashboardPage() {
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-semibold">Mis Mascotas</h2>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+          <h2 className="text-xl sm:text-2xl font-semibold">Mis Mascotas</h2>
           <button
             onClick={handleAddPet}
-            className="px-4 py-2 bg-[#4646FA] text-white rounded-lg hover:bg-[#3535E8] hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 shadow-md font-medium flex items-center gap-2"
+            className="w-full sm:w-auto px-4 py-2 bg-[#4646FA] text-white rounded-lg hover:bg-[#3535E8] hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 shadow-md font-medium flex items-center justify-center gap-2 text-sm sm:text-base"
           >
             <FaPlus className="text-sm" />
             Agregar Mascota
@@ -155,7 +155,7 @@ export default function DashboardPage() {
           />
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {pets.map((pet) => (
             <PetCard
               key={pet.id}
@@ -287,27 +287,27 @@ function PetCard({ pet, onEdit, onUpdate }) {
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6 border border-slate-200">
-      <div className="flex justify-between items-start mb-4">
-        <div className="flex gap-4 flex-1">
+    <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 border border-slate-200">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-start gap-3 sm:gap-4 mb-4">
+        <div className="flex gap-3 sm:gap-4 flex-1 w-full">
           {pet.photo_url && (
             <div className="shrink-0">
               <img
                 src={pet.photo_url}
                 alt={pet.name}
-                className="w-20 h-20 object-cover rounded-lg border border-zinc-300"
+                className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-lg border border-zinc-300"
               />
             </div>
           )}
-          <div className="flex-1">
-            <h3 className="text-xl font-semibold mb-1 text-gray-800">{pet.name}</h3>
-            {pet.breed && <p className="text-sm text-gray-600">{pet.breed}</p>}
-            {pet.age && <p className="text-sm text-gray-600">{pet.age} años</p>}
+          <div className="flex-1 min-w-0">
+            <h3 className="text-lg sm:text-xl font-semibold mb-1 text-gray-800 truncate">{pet.name}</h3>
+            {pet.breed && <p className="text-xs sm:text-sm text-gray-600 truncate">{pet.breed}</p>}
+            {pet.age && <p className="text-xs sm:text-sm text-gray-600">{pet.age} años</p>}
           </div>
         </div>
         <button
           onClick={() => onEdit(pet)}
-          className="px-3 py-1.5 text-sm bg-[#4646FA] text-white rounded-lg hover:bg-[#3535E8] transition-colors duration-200 flex items-center gap-1.5"
+          className="w-full sm:w-auto px-3 py-1.5 text-xs sm:text-sm bg-[#4646FA] text-white rounded-lg hover:bg-[#3535E8] transition-colors duration-200 flex items-center justify-center gap-1.5"
         >
           <FaEdit className="text-xs" />
           Editar
@@ -318,18 +318,26 @@ function PetCard({ pet, onEdit, onUpdate }) {
         <div className="mt-4">
           <button
             onClick={() => setShowQR(!showQR)}
-            className="w-full px-4 py-2 bg-[#4646FA] text-white rounded-lg hover:bg-[#3535E8] text-sm flex items-center justify-center gap-2"
+            className="w-full px-3 sm:px-4 py-2 bg-[#4646FA] text-white rounded-lg hover:bg-[#3535E8] text-xs sm:text-sm flex items-center justify-center gap-2"
           >
-            <FaQrcode />
+            <FaQrcode className="text-sm" />
             {showQR ? 'Ocultar' : 'Ver'} Código QR
           </button>
           {showQR && (
             <div className="mt-4 flex justify-center">
-              <div className="bg-white p-4 rounded">
-                <QRCodeSVG
-                  value={`${getQRBaseUrl()}/qr/${qrCode.qr_code}`}
-                  size={200}
-                />
+              <div className="bg-white p-2 sm:p-4 rounded">
+                <div className="sm:hidden">
+                  <QRCodeSVG
+                    value={`${getQRBaseUrl()}/qr/${qrCode.qr_code}`}
+                    size={160}
+                  />
+                </div>
+                <div className="hidden sm:block">
+                  <QRCodeSVG
+                    value={`${getQRBaseUrl()}/qr/${qrCode.qr_code}`}
+                    size={200}
+                  />
+                </div>
               </div>
             </div>
           )}
@@ -342,24 +350,24 @@ function PetCard({ pet, onEdit, onUpdate }) {
             href={pet.vaccine_pdf_url}
             target="_blank"
             rel="noopener noreferrer"
-                  className="text-sm text-[#4646FA] hover:text-[#3535E8] font-medium transition-colors duration-200"
+            className="text-xs sm:text-sm text-[#4646FA] hover:text-[#3535E8] font-medium transition-colors duration-200 block text-center sm:text-left"
           >
             Ver PDF de Vacunas
           </a>
         </div>
       )}
 
-      <div className="mt-4 flex gap-4">
+      <div className="mt-4 flex flex-col sm:flex-row gap-2 sm:gap-4">
         <Link
           href={`/dashboard/pet/${pet.id}/settings`}
-          className="text-sm text-[#4646FA] hover:text-[#3535E8] font-medium transition-colors duration-200 flex items-center gap-1.5"
+          className="text-xs sm:text-sm text-[#4646FA] hover:text-[#3535E8] font-medium transition-colors duration-200 flex items-center justify-center sm:justify-start gap-1.5 py-2 sm:py-0"
         >
           <FaShieldAlt className="text-xs" />
           Configurar Privacidad
         </Link>
         <button
           onClick={handleDelete}
-          className="text-sm text-red-600 hover:text-red-700 font-medium transition-colors duration-200 flex items-center gap-1.5"
+          className="text-xs sm:text-sm text-red-600 hover:text-red-700 font-medium transition-colors duration-200 flex items-center justify-center sm:justify-start gap-1.5 py-2 sm:py-0"
         >
           <FaTrash className="text-xs" />
           Eliminar
@@ -570,9 +578,9 @@ function AddPetModal({ pet, user, onClose, onSuccess }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-[#F3F3F3] bg-opacity-95 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 border border-slate-200">
-        <h2 className="text-2xl font-bold mb-4 text-gray-800">
+    <div className="fixed inset-0 bg-[#F3F3F3] bg-opacity-95 flex items-center justify-center z-50 p-4 overflow-y-auto">
+      <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-4 sm:p-6 border border-slate-200 my-4">
+        <h2 className="text-xl sm:text-2xl font-bold mb-4 text-gray-800">
           {pet ? 'Editar Mascota' : 'Agregar Mascota'}
         </h2>
 
@@ -596,9 +604,9 @@ function AddPetModal({ pet, user, onClose, onSuccess }) {
                 />
               </div>
             )}
-            <div className="flex gap-2 mb-2">
-              <label className="flex-1 px-4 py-2 border border-zinc-300 rounded-lg hover:bg-[#F3F3F3] text-center cursor-pointer flex items-center justify-center gap-2 text-gray-700 font-medium">
-                <FaFolder />
+            <div className="flex flex-col sm:flex-row gap-2 mb-2">
+              <label className="flex-1 px-3 sm:px-4 py-2 border border-zinc-300 rounded-lg hover:bg-[#F3F3F3] text-center cursor-pointer flex items-center justify-center gap-2 text-gray-700 font-medium text-sm sm:text-base">
+                <FaFolder className="text-sm" />
                 Subir Foto
                 <input
                   type="file"
@@ -620,9 +628,9 @@ function AddPetModal({ pet, user, onClose, onSuccess }) {
               <button
                 type="button"
                 onClick={handleTakePhoto}
-                className="flex-1 px-4 py-2 border border-zinc-300 rounded-lg hover:bg-[#F3F3F3] text-center flex items-center justify-center gap-2 text-gray-700 font-medium"
+                className="flex-1 px-3 sm:px-4 py-2 border border-zinc-300 rounded-lg hover:bg-[#F3F3F3] text-center flex items-center justify-center gap-2 text-gray-700 font-medium text-sm sm:text-base"
               >
-                <FaCamera />
+                <FaCamera className="text-sm" />
                 Tomar Foto
               </button>
             </div>
@@ -716,21 +724,21 @@ function AddPetModal({ pet, user, onClose, onSuccess }) {
             />
           </div>
 
-          <div className="flex gap-4">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 border border-zinc-300 rounded-lg hover:bg-[#F3F3F3] text-center flex items-center justify-center gap-2 text-gray-700 font-medium"
+              className="flex-1 px-4 py-2.5 border border-zinc-300 rounded-lg hover:bg-[#F3F3F3] text-center flex items-center justify-center gap-2 text-gray-700 font-medium text-sm sm:text-base"
             >
-              <FaTimes />
+              <FaTimes className="text-sm" />
               Cancelar
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 px-4 py-2 bg-[#4646FA] text-white rounded-lg hover:bg-[#3535E8] disabled:opacity-50 flex items-center justify-center gap-2 font-medium"
+              className="flex-1 px-4 py-2.5 bg-[#4646FA] text-white rounded-lg hover:bg-[#3535E8] disabled:opacity-50 flex items-center justify-center gap-2 font-medium text-sm sm:text-base"
             >
-              <FaCheck />
+              <FaCheck className="text-sm" />
               {loading ? 'Guardando...' : pet ? 'Actualizar' : 'Crear'}
             </button>
           </div>

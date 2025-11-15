@@ -4,17 +4,30 @@ import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import { FaEye, FaEyeSlash } from 'react-icons/fa'
 
 function LoginContent() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [isLogin, setIsLogin] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [fullName, setFullName] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirect = searchParams?.get('redirect') || '/dashboard'
+
+  // Limpiar campos cuando se cambia entre login y registro
+  useEffect(() => {
+    if (isLogin) {
+      setConfirmPassword('')
+      setFullName('')
+    }
+    setError('')
+  }, [isLogin])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -22,6 +35,13 @@ function LoginContent() {
     setError('')
 
     try {
+      // Validar que las contraseñas coincidan en registro
+      if (!isLogin && password !== confirmPassword) {
+        setError('Las contraseñas no coinciden')
+        setLoading(false)
+        return
+      }
+
       if (isLogin) {
         const { data, error } = await supabase.auth.signInWithPassword({
           email,
@@ -102,14 +122,57 @@ function LoginContent() {
               <label className="block text-sm font-medium mb-2">
                 Contraseña
               </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-2 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-[#4646FA] focus:border-[#4646FA] bg-white text-gray-800"
-                required
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-4 py-2 pr-12 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-[#4646FA] focus:border-[#4646FA] bg-white text-gray-800"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none transition-colors duration-200"
+                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                >
+                  {showPassword ? (
+                    <FaEyeSlash className="text-lg" />
+                  ) : (
+                    <FaEye className="text-lg" />
+                  )}
+                </button>
+              </div>
             </div>
+
+            {!isLogin && (
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Confirmar Contraseña
+                </label>
+                <div className="relative">
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full px-4 py-2 pr-12 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-[#4646FA] focus:border-[#4646FA] bg-white text-gray-800"
+                    required={!isLogin}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none transition-colors duration-200"
+                    aria-label={showConfirmPassword ? 'Ocultar confirmación de contraseña' : 'Mostrar confirmación de contraseña'}
+                  >
+                    {showConfirmPassword ? (
+                      <FaEyeSlash className="text-lg" />
+                    ) : (
+                      <FaEye className="text-lg" />
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
 
             <button
               type="submit"
