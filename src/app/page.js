@@ -258,13 +258,13 @@ export default function Home() {
               <FaHeart className="text-lg" />
               Crear Cuenta Gratis
             </Link>
-            <Link
+            {/* <Link
               href="/generate-qr"
               className="flex h-14 items-center justify-center gap-2 rounded-full border-2 border-white bg-transparent text-white px-8 transition-all duration-300 hover:bg-white hover:text-[#4646FA] hover:shadow-xl hover:-translate-y-1 font-semibold text-lg"
             >
               <FaQrcode className="text-lg" />
               Generar Código QR
-            </Link>
+            </Link> */}
           </div>
         </div>
       </section>
