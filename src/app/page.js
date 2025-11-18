@@ -25,13 +25,13 @@ export default function Home() {
                   <FaHeart className="text-lg" />
                   Empezar Ahora
                 </Link>
-                <Link
+                {/* <Link
                   href="/generate-qr"
                   className="flex h-14 items-center justify-center gap-2 rounded-full border-2 border-white bg-transparent text-white px-8 transition-all duration-300 hover:bg-white hover:text-[#4646FA] hover:shadow-xl hover:-translate-y-1 font-semibold text-lg"
                 >
                   <FaQrcode className="text-lg" />
                   Generar QR
-                </Link>
+                </Link> */}
               </div>
             </div>
             <div className="relative h-96 md:h-[500px] rounded-2xl overflow-hidden shadow-2xl">
